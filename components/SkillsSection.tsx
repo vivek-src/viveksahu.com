@@ -214,11 +214,7 @@ export default function TechStack() {
       className={`py-24 px-6 max-w-7xl mx-auto transition-all duration-1000 motion-reduce:transition-none ease-out ${
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
       }`}>
-      <SectionHeader
-        title="Tech Stack &"
-        accent="Tools"
-        description="Technologies I use to design, build, and scale reliable, high-performance systems."
-      />
+      <SectionHeader title="Tech Stack &" accent="Tools" />
 
       {/* Contiguous Grid Layout */}
       <div className="mt-14 grid grid-cols-1 md:grid-cols-2 rounded-2xl border border-white/[0.07] bg-white/[0.01] overflow-hidden">

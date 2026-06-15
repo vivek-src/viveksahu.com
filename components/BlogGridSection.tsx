@@ -94,8 +94,8 @@ export default function BlogGridSection({ posts = [] }: BlogGridProps) {
     <section className="py-20">
       <div className="max-w-7xl mx-auto px-6">
         <SectionHeader
-          title="Engineering"
-          accent="Notes"
+          title="Blog"
+          accent=""
           description="Notes on building systems, exploring technologies, and documenting engineering decisions."
         />
 

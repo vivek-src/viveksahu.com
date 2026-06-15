@@ -22,8 +22,6 @@ export default function SectionHeader({
           <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
             {title} <span className="text-emerald-400">{accent}</span>
           </h2>
-          {/* The signature dot
-          <div className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)]" /> */}
         </div>
 
         {/* Optional Description */}

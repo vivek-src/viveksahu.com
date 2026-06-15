@@ -30,12 +30,7 @@ export default function AboutSection() {
       className={`py-24 px-6 max-w-7xl mx-auto transition-all duration-1000 motion-reduce:transition-none ease-out ${
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
       }`}>
-      <SectionHeader
-        title="About"
-        accent="Me"
-        description="A bridge between clean code and reliable infrastructure."
-        className="mx-0"
-      />
+      <SectionHeader title="About" accent="Me" className="mx-0" />
 
       <div className="mt-2 w-full">
         <div className="space-y-6 text-white/70 text-[17px] leading-relaxed">

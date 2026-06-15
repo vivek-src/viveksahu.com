@@ -82,7 +82,7 @@ export default function ContactSection() {
       <SectionHeader
         title="Let's"
         accent="Connect"
-        description="Open to full-time roles and meaningful engineering opportunities. Available for select collaborations."
+        description="Open to full-time roles. If you're building something interesting, I'm probably interested too."
       />
 
       <div className="mt-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

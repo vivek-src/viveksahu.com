@@ -186,7 +186,7 @@ export default function ProjectGrid({ projects }: ProjectGridProps) {
   return (
     <section className="w-full max-w-7xl mx-auto px-6 py-24">
       <SectionHeader
-        title="Selected "
+        title="Featured "
         accent="Projects"
         description="Projects focused on building and deploying real-world systems across frontend, backend, and infrastructure."
       />
