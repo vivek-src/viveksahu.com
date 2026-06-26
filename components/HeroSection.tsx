@@ -108,7 +108,7 @@ export default function HeroSection() {
               <Mail className="h-[22px] w-[22px]" />
             </a>
             <a
-              href="https://github.com/viveek-sh"
+              href="https://github.com/vivek-src"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="GitHub"
@@ -116,7 +116,7 @@ export default function HeroSection() {
               <FaGithub className="h-[22px] w-[22px]" />
             </a>
             <a
-              href="https://linkedin.com/in/viveek-sh"
+              href="https://www.linkedin.com/in/vivek-src/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="LinkedIn"

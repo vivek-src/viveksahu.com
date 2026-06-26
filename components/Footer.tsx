@@ -36,19 +36,19 @@ export default function Footer() {
           {/* Social Links  */}
           <div className="flex items-center justify-center gap-8">
             <Link
-              href="https://github.com/viveek-sh"
+              href="https://github.com/vivek-src"
               target="_blank"
               className="text-muted-foreground hover:text-primary transition-colors">
               <FaGithub className="size-5" />
             </Link>
             <Link
-              href="https://www.linkedin.com/in/viveek-sh/"
+              href="https://www.linkedin.com/in/vivek-src/"
               target="_blank"
               className="text-muted-foreground hover:text-primary transition-colors">
               <FaLinkedin className="size-5" />
             </Link>
             <Link
-              href="https://x.com/viveek_sh"
+              href="https://x.com/vivek_src"
               target="_blank"
               className="text-muted-foreground hover:text-primary transition-colors">
               <FaSquareXTwitter className="size-5" />

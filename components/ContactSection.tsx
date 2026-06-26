@@ -19,22 +19,22 @@ const LOCATION = "Raipur, Chhattisgarh, India";
 const socials = [
   {
     label: "GitHub",
-    handle: "@viveek-sh",
-    href: "https://github.com/viveek-sh",
+    handle: "@vivek-src",
+    href: "https://github.com/vivek-src",
     icon: <FaGithub className="size-5" />,
     color: "hover:text-white",
   },
   {
     label: "LinkedIn",
-    handle: "in/viveek-sh",
-    href: "https://www.linkedin.com/in/viveek-sh/",
+    handle: "in/vivek-src",
+    href: "https://www.linkedin.com/in/vivek-src/",
     icon: <FaLinkedin className="size-5" />,
     color: "hover:text-blue-400",
   },
   {
     label: "Twitter / X",
-    handle: "@viveek_sh",
-    href: "https://x.com/viveek_sh",
+    handle: "@vivek-src",
+    href: "https://x.com/vivek_src",
     icon: <FaSquareXTwitter className="size-5" />,
     color: "hover:text-sky-400",
   },

@@ -67,8 +67,8 @@ export const metadata: Metadata = {
     title: "Vivek Sahu | Full-Stack Engineer & Systems Architect",
     description:
       "Full-Stack Engineer & Systems Architect based in India. Scalable backend systems, cloud infrastructure, and distributed systems.",
-    site: "@viveek_sh",
-    creator: "@viveek_sh",
+    site: "@vivek_src",
+    creator: "@vivek_src",
     images: ["/og-image.png"],
   },
 
