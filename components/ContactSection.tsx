@@ -33,7 +33,7 @@ const socials = [
   },
   {
     label: "Twitter / X",
-    handle: "@vivek-src",
+    handle: "@vivek_src",
     href: "https://x.com/vivek_src",
     icon: <FaSquareXTwitter className="size-5" />,
     color: "hover:text-sky-400",
