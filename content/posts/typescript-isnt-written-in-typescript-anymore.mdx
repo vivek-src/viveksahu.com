@@ -1,0 +1,53 @@
+---
+title: "TypeScript's Compiler Isn't Written in TypeScript Anymore"
+excerpt: "TypeScript 7's compiler just got ported to Go, and it's up to 10x faster. Here's why Go beat Rust, and what it means for the rest of JS tooling."
+author: "Vivek"
+image: "/blog/typescript.webp"
+date: "2026-06-30"
+slug: "typescript-isnt-written-in-typescript-anymore"
+tags: ["TypeScript", "JS Tooling", "TS7", "Performance", "Go Lang"]
+---
+
+A few days ago Microsoft put out the release candidate for TypeScript 7, and the headline number is the kind of thing that makes you stop scrolling: roughly up to 10x faster than TypeScript 6. Not "faster in some edge case." Faster across the board - type-checking, builds, your editor's autocomplete, all of it.
+
+The part that actually surprised me wasn't the speedup. It was how they got there. The new compiler isn't written in TypeScript anymore. It's written in Go.
+
+## Why Go?
+
+My first assumption, like most people's, was Rust. That's the default answer whenever a team rewrites something for performance these days - Bun did it, Turbopack did it, most of the JS tooling world has become a Rust tooling world. So Go felt like an odd choice at first glance.
+
+But the more I read into it, the more it made sense. The TypeScript team wasn't starting from a blank page - they were porting an existing, decade-old codebase line by line, not redesigning it.
+
+Go's syntax and semantics turned out to be close enough to TypeScript's own that the port could stay structurally honest to the original instead of becoming a from-scratch rewrite with new bugs hiding in new places.
+
+Rust's ownership model would have forced a lot of that code to be rethought rather than translated. Go also gives them real, simple parallelism, which matters a lot here because type-checking is almost entirely CPU-bound work and Node has never been good at spreading CPU-bound work across cores. Worker threads exist, but they're not the same as a language built around concurrency from day one.
+
+So this isn't a rewrite. It's a port - the same algorithms, the same logic, just running on a foundation that can actually use your CPU properly.
+
+## Why this matters more than it sounds like it should
+
+TypeScript isn't just a language with types bolted onto JavaScript. The actual compiler - `tsc` - is the only thing that reliably tells you if your types are correct. Bun runs TypeScript, Node can run it without a separate build step now, esbuild strips it out fast - but none of them check it.
+
+They just get out of the way. `tsc` is the one doing the real work, and it's the thing sitting inside your editor right now, running constantly in the background every time you save a file.
+
+That's the part people undersell. A 10x faster compiler doesn't just mean shorter CI runs. It means the feedback loop between you writing code and your editor telling you it's wrong gets ten times shorter too. If you've ever worked with something like Prisma or a heavily-typed query builder where the type inference goes a few layers deep, you already know what it feels like when your editor freezes for a second just to figure out what type a variable is. That's the exact pain this is aimed at.
+
+I've felt a smaller version of this myself working on the matching engine for my exchange project - once you start layering generics on top of generics, every keystroke turns into the editor doing real work, not just displaying text.
+
+## The bigger pattern here
+
+This isn't really a TypeScript story on its own. It's the latest entry in a pattern that's been building for a couple of years now: JavaScript tooling quietly leaving JavaScript. esbuild, SWC, Turbopack, Bun's runtime itself - none of them are written in the language they serve.
+
+JavaScript is clearly not going anywhere as a language people write applications in. But the tools that process JavaScript and TypeScript keep ending up in Go or Rust or Zig, because at some point native code and real parallelism just win.
+
+TypeScript joining that list isn't surprising in hindsight. What's surprising is that it took this long, given how central the compiler is to the entire ecosystem.
+
+## What I actually think
+
+I don't think this was a flashy decision - and that's kind of the point. The team spent over a year testing this on real, multi-million-line codebases at places like Bloomberg, Figma, Canva, and Google before calling it a release candidate, not a "ship it and see" rewrite done over a weekend. That patience is the opposite of how a lot of tooling rewrites get handled lately, and it's probably why I trust this one more than most.
+
+It's still a release candidate rather than the final stable release, so there may be a few rough edges. That said, it's a welcome step forward, with the move to the new Go codebase bringing significant performance improvements and laying the groundwork for a faster TypeScript experience in the future.
+
+For everyone else, the only real decision is whether to try the RC now or wait a month for the stable release. Given how much of my own day is spent waiting on a type-checker, I know which one I'm picking.
+
+_Source: ["Announcing TypeScript 7.0 RC" - Microsoft DevBlogs](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0-rc/)_
