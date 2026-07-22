@@ -1,0 +1,129 @@
+---
+title: "What Building an Exchange Taught Me About Everything Else"
+excerpt: "TypeScript 7's compiler just got ported to Go, and it's up to 10x faster. Here's why Go beat Rust, and what it means for the rest of JS tooling."
+author: "Vivek"
+image: "/blog/xchg.svg"
+date: "2026-06-30"
+slug: "typescript-isnt-written-in-typescript-anymore"
+tags: ["TypeScript", "System Design", "Performance", "PostgreSQL", "WebSocket"]
+---
+
+# What Building an Exchange Taught Me About Everything Else
+
+**TL;DR:** I set out to build a crypto exchange simulator expecting the matching engine to be the hard part. It wasn't — the real engineering effort went into service boundaries, an event-driven Redis layer, a mid-project database migration to TimescaleDB, and getting the whole thing production-ready on a VM. This is the roadblock-by-roadblock account of what actually broke, why, and what I changed as a result.
+
+---
+
+When I started Exchange-Lab, the plan in my head was simple: write a matching engine, wire up a frontend, ship it. Order books aren't magic — price-time priority, a sorted structure, done.
+
+What actually happened was a four-to-five-month project. The matching engine turned out to be maybe a fifth of the actual work. Everything _around_ it — service boundaries, Redis plumbing, a database migration I didn't see coming, chart libraries that quietly expect timestamps in a format nobody documents clearly — is where almost all the time went.
+
+This is that story, in the order I actually hit it.
+
+## 1. Realizing "exchange" isn't a CRUD app
+
+The first wall I hit wasn't code, it was architecture. A real exchange isn't a request-response app with a database behind it. Matching has to happen fast, settlement has to be safe, and market data has to reach many connections without falling behind.
+
+That meant deciding, from scratch, questions I hadn't had to answer before. Monolith, or split into services? How does the API even talk to the matching engine — direct function call, or something looser? How do you keep the engine's in-memory order book from becoming something every other service pokes at directly? Who owns the order book, and where do trades actually get written down?
+
+I went back and forth on this more than once. What I landed on: the API, matching engine, WebSocket server, and ledger worker as separate processes, talking only through Redis. No service calls another service directly.
+
+It's a decision that paid for itself later. But figuring out that this was the right shape took longer than writing any of the individual services.
+
+## 2. Building the matching engine (the "real" backend problem)
+
+This is the part I expected to be hard, and it was — just not in the way I expected.
+
+### Price-time priority and the order lifecycle
+
+Getting price-time priority right meant keeping bids sorted descending and asks sorted ascending. It meant handling partial fills without corrupting either side of a trade, and supporting cancellation without leaving stale orders in the book. The naive version worked, but it also did O(n) scans on every lookup — I eventually replaced those with Map-based lookups once that became an obvious bottleneck.
+
+### Bugs that made me feel briefly unqualified for my own project
+
+A few bugs here were humbling. **Balance settlement bugs** — the logic that actually deducts and credits wallets during a fill had edge cases that could leave balances wrong. **BigInt JSON serialization** — trade IDs and precise financial amounts as `BigInt` don't serialize through `JSON.stringify` by default, which bites anyone doing finance-adjacent work in JavaScript sooner or later. **Floating-point issues** — anything involving prices and quantities needs to avoid floating-point arithmetic wherever precision matters, which meant rethinking how amounts were represented entirely.
+
+## 3. Making Redis the nervous system of the whole system
+
+Once the engine existed as its own process, I needed a way for it to talk to everything else. I considered Pub/Sub, Streams, queues, and just biting the bullet on direct API calls.
+
+I settled on a queue for order intake, so the API isn't waiting on the engine to finish matching, and Pub/Sub for broadcasting results back out. That combination let each service stay ignorant of the others' internals.
+
+### The bug that was really a config default
+
+Then came the bug that ate an embarrassing number of hours: `ECONNREFUSED ::1:6379` inside Docker, followed by the same thing against `127.0.0.1:6379`. The root cause was almost insultingly simple once I found it. `createClient()` with no explicit config defaults to `localhost`, and every Redis client instantiation — a `RedisManager` here, an `EngineClient` there — was quietly creating its own default connection. Inside Docker, `localhost` isn't the Redis container, it's the current container. Nothing was wrong with Redis; everything was configured to talk to the wrong host.
+
+## 4. The WebSocket layer, and figuring out who's allowed to speak
+
+The natural question once Pub/Sub existed was: who actually publishes market updates? The API? The engine? Does Redis just become the source of truth for everything?
+
+The pipeline that finally stuck was engine → Redis Pub/Sub → WebSocket service → browser. Simple to describe, not simple to get right. I went through rounds of duplicate subscriptions, listeners that outlived the component that created them, and reconnect logic that needed exponential backoff to be reliable instead of hammering a server that just went down. Services also disagreed on channel naming more than once, which is a smaller problem than it sounds until you're the one tracing why an update silently never arrived.
+
+## 5. The TimescaleDB migration (the biggest database headache, by far)
+
+Everything started on plain PostgreSQL. Then I wanted real candlestick charts, and plain Postgres doing OHLCV aggregation on read wasn't going to hold up. So: TimescaleDB.
+
+This is the section of the project that taught me the most, almost entirely through pain.
+
+### Extension loading and shared_preload_libraries
+
+I hit `shared_preload_libraries` errors that only went away once I realized the Docker image needed to be `timescale/timescaledb`, not vanilla `postgres` with an extension bolted on after the fact.
+
+### Prisma migrations and the shadow database
+
+This was probably my single longest debugging session on the whole project. A parade of error codes — `P1012`, `P3014`, `P3006`, `P3018` — along with shadow database failures and migrations that simply wouldn't apply, one after another.
+
+### Continuous aggregates versus Prisma's transactions
+
+`CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous)` kept failing because Prisma wraps every migration in a transaction, and Timescale flatly refuses to create a continuous aggregate inside one. The fix was pulling that SQL out of Prisma's migration flow entirely and running it manually, outside the transaction Prisma controls.
+
+### Hypertables and schema restructuring
+
+`create_hypertable()` complained about timestamp column requirements, which meant restructuring tables before Timescale would accept them. Continuous aggregates then needed their own timestamp-based indexes, which meant another pass at the schema on top of that.
+
+## 6. Candlesticks, and the bug that was one word long
+
+Generating OHLCV data meant picking sensible intervals — 1m, 5m, 15m, 1h, 1d, 1w — aggregating trades correctly, and querying it efficiently enough to feed a live chart.
+
+Then I wired that data into TradingView's Lightweight Charts library, and the chart just stayed blank. No errors, no console noise, just an empty canvas. Hours later, I found the cause: Lightweight Charts expects timestamps as a `number`, and my backend was sending a `Date`. One field's type — that's the whole bug. It's also the most efficient reminder I've had in a while that "no errors" doesn't mean "no bug."
+
+## 7. Managing market data subscriptions without leaking
+
+The frontend's market data layer went through several rewrites. There were duplicate subscriptions when switching symbols, and listeners that didn't get cleaned up properly.
+
+Separately, and much stranger, there was a memory leak I eventually traced upstream, past my own code entirely, into a Turbopack bug — I filed it against the Next.js repo. Chasing a leak all the way into someone else's build tool wasn't how I expected to spend that week, but it's the kind of debugging that sharpens your instinct for where a problem _isn't_.
+
+## 8. Dockerizing everything (which took weeks, not days)
+
+Containerizing the API, engine, WebSocket service, Redis, TimescaleDB, the ledger worker, and Next.js sounds like a checklist. In practice it surfaced a long tail of small, specific problems.
+
+Services kept reaching for `localhost` when they meant `redis` or `postgres` — the same class of bug as the earlier Redis issue, just showing up again in a new context. Build ordering caused its own trouble too, with `prisma generate` running before the database it depends on even existed.
+
+### Environment variables, the recurring villain
+
+By far the most recurring category of bug across the whole project was environment configuration. `DATABASE_URL` missing, `.env` not being picked up inside a container the way it was locally, config that worked on my machine and nowhere else — this pattern showed up again and again in different disguises.
+
+The monorepo itself added friction too. Getting Docker's build context right for a Turborepo workspace, and making sure dependencies actually got copied into the right place, took more than one attempt. A smaller ripple effect came from making `EngineClient.getInstance()` async — a reasonable-sounding change that meant adding `await` at every call site across the codebase.
+
+## 9. Taking it to production
+
+Local development is one set of problems. A production VM is a different set entirely.
+
+I deployed to an OCI (Oracle Cloud) VM, which meant getting the Docker Compose layout right for production, deciding what Nginx should expose versus keep internal, and making sure Redis and Timescale data actually persisted across restarts. Connection pooling needed real attention once things were running under anything resembling load, and I hit the classic deployment pair of CORS misconfiguration and environment variables that were correct locally and wrong in production.
+
+Nginx ended up sitting in front of everything — routing to Express, to Next.js, and proxying WebSocket upgrades through to the `ws` service. That meant learning the specific quirks of proxying a persistent connection instead of a normal request/response cycle.
+
+## 10. Authentication, migrated more than once
+
+Auth went through its own evolution. There were changes to NextAuth's middleware, adjustments as the reverse-proxy setup changed, and a switch in transactional email providers — moving off Mailtrap to Resend once "email works on my machine" needed to become "email works for real users."
+
+## 11. The lesson that actually matters
+
+Looking back at the whole timeline, there's a pattern I didn't notice until it was mostly over. I kept improving things — architecture, deployment, folder structure, the database — sometimes _before_ finishing the feature that prompted the improvement in the first place.
+
+Moving to TimescaleDB, redesigning the WebSocket layer, introducing Docker before the project was feature-complete, going back to make infrastructure production-ready — every one of those individually made the project better. Collectively, they're most of the reason this took four to five months instead of the four-to-six-week prototype it could have been.
+
+That's not a regret, exactly. I learned more from the rebuilds than I would have from shipping the first version. But it's the honest answer to "what's the biggest lesson," and it's more useful than anything about Redis or Prisma specifically: knowing when to stop improving the foundation and finish the room you're standing in is its own skill, separate from knowing how to build the foundation well.
+
+---
+
+If you want to see where all of this landed: the matching engine, the Redis-based event bus, the Timescale-backed charts, and the whole Nginx-fronted deployment are live at **xchg.viveksahu.com**, and the code is on GitHub at **github.com/vivek-src/exchange-lab**.
