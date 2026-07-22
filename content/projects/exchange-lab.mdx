@@ -1,60 +1,64 @@
 ---
-title: "exchange-lab."
-description: "Built a high-performance exchange simulator with an in-memory matching engine and real-time streaming. Low-latency concurrent trades, event-driven updates using WebSockets and Redis."
-date: "2026-03-15"
-image: "/projects/xchglab.webp"
-techStack: ["TypeScript", "Node.js", "Redis", "Next.js"]
-liveLink: "in-progress"
+title: "Exchange-lab."
+description: "A production-inspired exchange simulator with a custom in-memory matching engine, event-driven settlement over Redis, live WebSocket market data, and TradingView charting."
+date: "2026-07-22"
+image: "/projects/xchg-lab.webp"
+techStack:
+  [
+    "TypeScript",
+    "Next.js",
+    "Node.js",
+    "Express",
+    "Redis",
+    "TimescaleDB",
+    "Docker",
+    "Nginx",
+  ]
+liveLink: "https://xchg.viveksahu.com/"
 githubLink: "https://github.com/vivek-src/exchange-lab"
-credentials:
-  user: "admin"
-  pass: "123"
 ---
 
 ## Overview
 
-**exchange-lab** is a high-performance trading exchange simulation designed to replicate the core mechanics of modern financial markets. It focuses on speed, efficiency, and real-time data flow, making it a practical exploration of low-latency system design.
+I already understood, conceptually, how an exchange keeps order matching fast while keeping balances consistent under concurrent load. This project was about actually building that.
 
-The project implements an in-memory matching engine capable of handling order placement, matching, and execution with minimal overhead. Alongside this, it provides real-time market data streaming to simulate a live trading environment.
+Exchange-lab is a full-stack exchange simulator: a custom in-memory matching engine, event-driven settlement over Redis, live market data over WebSockets, and TradingView-style charting — running as decoupled microservices behind Nginx.
 
-## Key Features
+## The core problem
 
-- **In-Memory Matching Engine**  
-  Efficient order matching using optimized data structures for minimal latency.
+The matching engine runs entirely in memory for speed, which means PostgreSQL is always a step behind what the engine just decided. Handled carelessly, that gap causes double-spends or trades that silently vanish.
 
-- **Order Book Management**  
-  Supports limit orders with dynamic bid/ask tracking.
+I solved it with row-level locking inside an ACID-compliant ledger worker, and an event-driven design where the API, matching engine, WebSocket server, and ledger worker only communicate through Redis — never directly with each other.
 
-- **Real-Time Market Data**  
-  Streams live updates for trades and order book changes.
+## Highlights
 
-- **Low Latency Design**  
-  Built with performance-first principles using Node.js and Redis.
+- Custom price-time priority matching engine, running fully in memory
+- Event-driven microservices — no direct service-to-service calls
+- ACID ledger worker with row-level locking for safe concurrent settlement
+- Custom Snowflake ID generation for sortable, collision-free order IDs
+- TimescaleDB-backed TradingView-style charting
+- Fully Dockerized, deployed behind Nginx on a Linux VM
 
-- **Scalable Architecture**  
-  Designed to handle increasing loads with minimal performance degradation.
+## Architecture
+
+![Architecture](/projects/xchg-architecture.svg)
+
+1. A client submits an order via the Next.js frontend
+2. The API (Express) pushes it onto a Redis queue, tagged with a Snowflake ID
+3. The matching engine pops it off the queue, validates it, and matches it against the in-memory order book
+4. The engine publishes the result over Redis Pub/Sub
+5. The API, WebSocket server, and ledger worker each react to that same event independently — resolving the request, broadcasting to clients, and persisting to Postgres, respectively
+   No service calls another directly — each one can be scaled, restarted, or replaced without touching the rest.
 
 ## Tech Stack
 
-- **TypeScript** — Strongly typed backend logic
-- **Node.js** — Event-driven architecture for concurrency
-- **Redis** — Fast in-memory data storage and pub/sub
-- **Next.js** — Frontend interface for visualization (if applicable)
+Next.js, React, Tailwind CSS · Node.js, Express, TypeScript · Redis · PostgreSQL, TimescaleDB · Prisma · Docker, Nginx
 
-## Use Case
+## Try it
 
-This project is ideal for understanding:
+Free virtual ₹50,000 balance, real order matching with realistic slippage — no signup required just to look around.
 
-- How trading engines work internally
-- Order matching algorithms (price-time priority)
-- Real-time systems and event streaming
-- Performance optimization in backend systems
+**Live demo:** [xchg.viveksahu.com](https://xchg.viveksahu.com)
+**Source:** [github.com/vivek-src/exchange-lab](https://github.com/vivek-src/exchange-lab)
 
-## Getting Started
-
-```bash
-git clone https://github.com/viveek-sh/exchange-lab
-cd exchange-lab
-npm install
-npm run dev
-```
+![Demo](/projects/xchg-grid.webp)
