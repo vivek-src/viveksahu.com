@@ -1,6 +1,6 @@
 ---
 title: "Exchange-lab."
-description: "A production-inspired exchange simulator with a custom in-memory matching engine, event-driven settlement over Redis, live WebSocket market data, and TradingView charting."
+description: "A centralized exchange (CEX) simulator — custodial order matching, an in-memory matching engine, event-driven settlement over Redis, live WebSocket market data, and TradingView-style charting."
 date: "2026-07-22"
 image: "/projects/xchg-lab.webp"
 techStack:
@@ -23,13 +23,13 @@ credentials:
 
 ## Overview
 
-I already understood, conceptually, how an exchange keeps order matching fast while keeping balances consistent under concurrent load. This project was about actually building that.
+I already understood, conceptually, how a centralized exchange (CEX) keeps order matching fast while keeping custodial balances consistent under concurrent load. This project was about actually building that.
 
-Exchange-lab is a full-stack exchange simulator: a custom in-memory matching engine, event-driven settlement over Redis, live market data over WebSockets, and TradingView-style charting — running as decoupled microservices behind Nginx.
+Exchange-lab is a full-stack centralized exchange: user funds and orders are held and matched by the platform itself, through a custom in-memory matching engine, event-driven settlement over Redis, live market data over WebSockets, and TradingView-style charting — running as decoupled microservices behind Nginx. Unlike a DEX, there's no on-chain settlement or smart contract involved — matching and custody both happen server-side, the same model real exchanges like Binance or Coinbase use internally.
 
 ## The core problem
 
-The matching engine runs entirely in memory for speed, which means PostgreSQL is always a step behind what the engine just decided. Handled carelessly, that gap causes double-spends or trades that silently vanish.
+The matching engine runs entirely in memory for speed, which means PostgreSQL — the system of record for every user's custodial balance — is always a step behind what the engine just decided. Handled carelessly, that gap causes double-spends or trades that silently vanish.
 
 I solved it with row-level locking inside an ACID-compliant ledger worker, and an event-driven design where the API, matching engine, WebSocket server, and ledger worker only communicate through Redis — never directly with each other.
 
@@ -43,8 +43,6 @@ I solved it with row-level locking inside an ACID-compliant ledger worker, and a
 - Fully Dockerized, deployed behind Nginx on a Linux VM
 
 ## Architecture
-
-![Architecture](/projects/xchg-architecture.svg)
 
 1. A client submits an order via the Next.js frontend
 2. The API (Express) pushes it onto a Redis queue, tagged with a Snowflake ID
