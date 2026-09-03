@@ -52,7 +52,7 @@ export default function HeroSection() {
           <h1
             className="text-4xl font-bold leading-[1.1] tracking-[-1.2px] text-white sm:text-5xl lg:text-[54px]"
             style={{ textShadow: "0 2px 20px rgba(0,0,0,0.45)" }}>
-            Building Reliable Systems
+            Hello WOrld
             <br />
             from Frontend to Infrastructure
           </h1>
